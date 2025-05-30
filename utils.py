@@ -110,6 +110,8 @@ class ADP():
              [0, 0, 0.1, 0, 0, 0], [0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0], [0, 0, 0, 2.3998, 0, 0],
              [0, 0, 0, 0, 2.3998, 0], [0, 0, 0, 0, 0, 2.3998]])
 
+        self.Q_h = np.array([[100, 0, 0], [0, 10, 10], [0, 0, 10]])
+        self.R_h = 0.1 * np.eye(3)
         self.nn_dim_h = 6
         self.weights_h = 500 * np.ones((self.nn_dim_h))
 
@@ -191,12 +193,12 @@ class ADP():
 
     def cost_function_h(self, h_e, u_1, u_2, u_3, u_4):
         # 代价函数
-        r = h_e.T @ self.Q @ h_e + u_1 @ self.R @ u_1 + u_2 @ self.R @ u_2 + u_3 @ self.R @ u_3 + u_4 @ self.R @ u_4
+        r = h_e.T @ self.Q_h @ h_e + u_1 @ self.R_h @ u_1 + u_2 @ self.R_h @ u_2 + u_3 @ self.R_h @ u_3 + u_4 @ self.R_h @ u_4
 
         return r
 
     def Phi_h(self, h):
-        phi = np.array([0.5 * h[0] ** 2, 0.5 * h[1] ** 2, 0.5 * h[2] ** 2, h[0] * h[1], h[1] * h[2], h[2] * h[3]])
+        phi = np.array([0.5 * h[0] ** 2, 0.5 * h[1] ** 2, 0.5 * h[2] ** 2, h[0] * h[1], h[0] * h[2], h[1] * h[2]])
 
         return phi
 
@@ -222,21 +224,21 @@ class ADP():
         e = r + self.weights_h.T @ d_phi @ d_h_e
 
         theta = d_phi @ d_h_e  # 公式5-43后半
-        d_weights = - self.yeta * theta * e  # 梯度下降
+        d_weights_h = - self.yeta * theta * e  # 梯度下降
 
-        self.weights = self.weights + d_weights * self.dt
-        phi = self.Phi(h_e)
-        v = self.weights.T @ phi  # 值函数，拟合的这个
+        self.weights_h = self.weights_h + d_weights_h * self.dt
+        phi = self.Phi_h(h_e)
+        v = self.weights_h.T @ phi  # 值函数，拟合的这个
 
         return self.weights_h, v
 
     def NE_h(self, h_e, g_1, g_2, g_3, g_4):
         # Nash均衡策略
         d_phi = self.dot_Phi_h(h_e)
-        u_1 = - 0.5 * np.linalg.inv(self.R) @ g_1.T @ d_phi.T @ self.weights_h
-        u_2 = - 0.5 * np.linalg.inv(self.R) @ g_2.T @ d_phi.T @ self.weights_h
-        u_3 = - 0.5 * np.linalg.inv(self.R) @ g_3.T @ d_phi.T @ self.weights_h
-        u_4 = - 0.5 * np.linalg.inv(self.R) @ g_4.T @ d_phi.T @ self.weights_h
+        u_1 = - 0.5 * np.linalg.inv(self.R_h) @ g_1.T @ d_phi.T @ self.weights_h
+        u_2 = - 0.5 * np.linalg.inv(self.R_h) @ g_2.T @ d_phi.T @ self.weights_h
+        u_3 = - 0.5 * np.linalg.inv(self.R_h) @ g_3.T @ d_phi.T @ self.weights_h
+        u_4 = - 0.5 * np.linalg.inv(self.R_h) @ g_4.T @ d_phi.T @ self.weights_h
 
         # 如果不限幅值会崩溃 这是个很严重的问题，可以加饱和函数
         u_1[:3] = np.clip(u_1[:3], -5, 5)

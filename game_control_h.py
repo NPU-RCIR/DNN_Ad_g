@@ -79,12 +79,12 @@ def save_data(Error, Weights, Configuration, s, a, v, folder="data"):
 
 
 # 加载模型
-model = mujoco.MjModel.from_xml_path("E:/DNN_pva_copy/TSNR/net_11_11_h.mjcf")
+model = mujoco.MjModel.from_xml_path("TSNR/net_11_11_h.mjcf")
 data = mujoco.MjData(model)
 mujoco.mj_resetData(model, data)
 
 # 渲染
-# viewer = mujoco_viewer.MujocoViewer(model, data)
+viewer = mujoco_viewer.MujocoViewer(model, data)
 
 # 初始化
 Error = np.zeros((4, n_steps, 16))
@@ -130,8 +130,8 @@ control_inputs = np.zeros((n_steps, 12))
 prev_v_c = np.zeros(3)
 
 # 生成期望轨迹
-v_c_0 = 0.5
-a_c_d = 0.5
+v_c_0 = np.array([0.5, 0, 0])
+a_c_d = np.array([0.5, 0, 0])
 traj = generate_trajectory(v_c_0, a_c_d, n_steps, dt)
 
 mujoco.mj_step(model, data)
@@ -143,6 +143,7 @@ data.qvel[18:21] = np.array([0.5, 0, 0])
 # 期望速度 加速度
 # v_c_0 = np.array([0.5,0,0])
 # a_c_d = np.array([0.4,0,0])
+prev_h = np.zeros(3)
 
 # mujoco.mj_step(model, data)
 for i in tqdm(range(n_steps), desc="仿真进度", ncols=100):  # 进度条
@@ -188,6 +189,7 @@ for i in tqdm(range(n_steps), desc="仿真进度", ncols=100):  # 进度条
 
     # 网兜深度
     h = p_c - p_n
+
     # h = rotation_matrix_from_quaternion(q_0) @ h
     # 坐标变换
     if h[0] > 0:
@@ -220,7 +222,15 @@ for i in tqdm(range(n_steps), desc="仿真进度", ncols=100):  # 进度条
 
     h_d = np.array([1.1, 0.01, 0.01])
     h_e = h - h_d
-    d_h_e = ( - h)/dt
+
+    # 计算深度导数 (使用前一帧的深度)
+    if i == 0:
+        d_h_e = np.zeros(3)
+    else:
+        d_h_e = (h - prev_h) / dt
+
+        # 保存当前深度用于下一帧计算
+        prev_h = h.copy()
 
     # 自适应动态规划
     if V_max > ksi:
@@ -238,7 +248,7 @@ for i in tqdm(range(n_steps), desc="仿真进度", ncols=100):  # 进度条
         V_3 = V_3_new
 
     if V_h_max > ksi:
-        W_h, V_h_new = critic_h.update_weights_h(h_e, d_h_e, control_0, control_1, control_2, control_3)
+        W_h, V_h_new = critic_h.update_weights_h(h_e, d_h_e, control_0[:3], control_1[:3], control_2[:3], control_3[:3])
 
         V_h_max = V_h_new
 
@@ -262,13 +272,13 @@ for i in tqdm(range(n_steps), desc="仿真进度", ncols=100):  # 进度条
     control_h_0, control_h_1, control_h_2, control_h_3, = critic_h.NE_h(h_e , g_0, g_1, g_2, g_3)
 
     u = np.zeros(24)
-    u[0:3] = np.clip(control_0[:3] + control_h_0, -u_max, u_max)
+    u[0:3] = np.clip(control_0[:3] + 0.5*control_h_0, -u_max, u_max)
     u[3:6] = np.clip(control_0[3:], -t_max, t_max)
-    u[6:9] = np.clip(control_1[:3] + control_h_1, -u_max, u_max)
+    u[6:9] = np.clip(control_1[:3] + 0.5*control_h_1, -u_max, u_max)
     u[9:12] = np.clip(control_1[3:], -t_max, t_max)
-    u[12:15] = np.clip(control_2[:3] + control_h_2, -u_max, u_max)
+    u[12:15] = np.clip(control_2[:3] + 0.5*control_h_2, -u_max, u_max)
     u[15:18] = np.clip(control_2[3:], -t_max, t_max)
-    u[18:21] = np.clip(control_3[:3] + control_h_3, -u_max, u_max)
+    u[18:21] = np.clip(control_3[:3] + 0.5*control_h_3, -u_max, u_max)
     u[21:24] = np.clip(control_3[3:], -t_max, t_max)
 
     data.ctrl = u
@@ -294,11 +304,11 @@ for i in tqdm(range(n_steps), desc="仿真进度", ncols=100):  # 进度条
     Configuration[i, 5:9] = q_0
 
     # 渲染
-    # viewer.render()
-    # if not viewer.is_alive:
-    #     break
+    viewer.render()
+    if not viewer.is_alive:
+        break
 
 # viewer.close()
 
 # 存储仿真结果
-save_data(Error, Weights, Configuration, s=25, a=a_c_d[0], v=v_c_0[0], folder="data_EWC")
+# save_data(Error, Weights, Configuration, s=25, a=a_c_d[0], v=v_c_0[0], folder="data_EWC")
