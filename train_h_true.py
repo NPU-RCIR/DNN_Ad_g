@@ -45,7 +45,7 @@ def main():
     # 训练数据的特征就被转换为均值为 0、标准差为 1 的分布。
 
     # 转换为PyTorch Tensor
-    X_train = torch.FloatTensor(train_features).to(device)  # 9+3*4+4*3=333
+    X_train = torch.FloatTensor(train_features).to(device)  # 9+3*4+4*3=33
     y_train = torch.FloatTensor(train_labels).to(device)
     X_test = torch.FloatTensor(test_features).to(device)
     y_test = torch.FloatTensor(test_labels).to(device)
@@ -177,6 +177,10 @@ def main():
         # 保存最佳模型
         if test_loss < best_test_loss:
             best_test_loss = test_loss
+
+            # 获取模型生成的g矩阵
+            g_matrix = model.last_g_matrix.numpy() if model.last_g_matrix is not None else None
+
         # train.py (片段)
         torch.save({
             'model': model.state_dict(),
@@ -186,7 +190,8 @@ def main():
             'u_std': u_std,
             # 'mean_long': validation_mean,
             # 'std_long': validation_std,
-            'hidden_dim': HIDDEN_DIM  # 新增此行
+            'hidden_dim': HIDDEN_DIM,  # 新增此行
+            'g_matrix': g_matrix  # 新增：保存g矩阵
         }, f"{SAVE_DIR}/best_model.pth")
 
         print(f"Epoch {epoch + 1}/{EPOCHS} | Train Loss: {train_loss:.6f} | Test Loss: {test_loss:.6f}")
