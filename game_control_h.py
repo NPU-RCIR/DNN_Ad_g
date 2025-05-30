@@ -5,6 +5,7 @@ import copy
 import time
 import os
 
+import torch
 from matplotlib import pyplot as plt
 from tqdm import tqdm
 from utils import ADP, error_dynamic, game_dynamic, rotation_matrix_from_quaternion
@@ -248,6 +249,15 @@ for i in tqdm(range(n_steps), desc="仿真进度", ncols=100):  # 进度条
     control_1 = critic_0.NE(g_x_1)
     control_2 = critic_0.NE(g_x_2)
     control_3 = critic_0.NE(g_x_3)
+
+    # 传入g0-3
+    checkpoint = torch.load("models/best_model.pth", weights_only=False)
+    g_matrix = checkpoint['g_matrix']  # 获取保存的g矩阵
+    g_all = g_matrix.squeeze(0)
+    g_0 = g_all[:, :3]
+    g_1 = g_all[:, 3:6]
+    g_2 = g_all[:, 6:9]
+    g_3 = g_all[:, 9:12]
 
     control_h_0, control_h_1, control_h_2, control_h_3, = critic_h.NE_h(h_e , g_0, g_1, g_2, g_3)
 
