@@ -220,17 +220,19 @@ for i in tqdm(range(n_steps), desc="仿真进度", ncols=100):  # 进度条
     g_x_2, d_g_x_2 = game_dynamic(x_2_e, x_0_e, x_3_e, d_x_1_e, d_x_0_e, d_x_3_e, a_2, a_20, a_23)
     g_x_3, d_g_x_3 = game_dynamic(x_3_e, x_1_e, x_2_e, d_x_0_e, d_x_1_e, d_x_2_e, a_3, a_31, a_32)
 
+
     h_d = np.array([1.1, 0.01, 0.01])
-    h_e = h - h_d
-
-    # 计算深度导数 (使用前一帧的深度)
-    if i == 0:
-        d_h_e = np.zeros(3)
-    else:
-        d_h_e = (h - prev_h) / dt
-
-        # 保存当前深度用于下一帧计算
-        prev_h = h.copy()
+    # 用h真值实验
+    # h_e = h - h_d
+    #
+    # # 计算深度导数 (使用前一帧的深度)
+    # if i == 0:
+    #     d_h_e = np.zeros(3)
+    # else:
+    #     d_h_e = (h - prev_h) / dt
+    #
+    #     # 保存当前深度用于下一帧计算
+    #     prev_h = h.copy()
 
     # 自适应动态规划
     if V_max > ksi:
@@ -247,38 +249,63 @@ for i in tqdm(range(n_steps), desc="仿真进度", ncols=100):  # 进度条
         V_2 = V_2_new
         V_3 = V_3_new
 
-    if V_h_max > ksi:
-        W_h, V_h_new = critic_h.update_weights_h(h_e, d_h_e, control_0[:3], control_1[:3], control_2[:3], control_3[:3])
-
-        V_h_max = V_h_new
-
-        V_h = V_h_new
-
     # 计算控制量 control = u, tau
     control_0 = critic_0.NE(g_x_0)
     control_1 = critic_0.NE(g_x_1)
     control_2 = critic_0.NE(g_x_2)
     control_3 = critic_0.NE(g_x_3)
 
+    control_forces = np.vstack([
+        np.asarray(control_0[:3]).reshape(-1,1),
+        np.asarray(control_1[:3]).reshape(-1,1),
+        np.asarray(control_2[:3]).reshape(-1,1),
+        np.asarray(control_3[:3]).reshape(-1,1)
+    ])  # 12*1
+    # print('c_f:',control_forces.shape)  # 输出: (12, 1)
+
     # 传入g0-3
     checkpoint = torch.load("models/best_model.pth", weights_only=False)
+    ad_matrix = checkpoint['ad_matrix']
     g_matrix = checkpoint['g_matrix']  # 获取保存的g矩阵
+    ad = ad_matrix.squeeze(0)
     g_all = g_matrix.squeeze(0)
     g_0 = g_all[:, :3]
     g_1 = g_all[:, 3:6]
     g_2 = g_all[:, 6:9]
     g_3 = g_all[:, 9:12]
 
+    # 用传递h实验
+    h_next = np.zeros(3)
+
+    if i == 0:
+        h = p_c - p_n
+        h_next = (ad @ h.reshape(3,-1) + g_all @ control_forces).flatten()
+        d_h_e = np.zeros(3)
+    else:
+        h = h_next
+        h_next =  (ad @ h.reshape(3,-1) + g_all @ control_forces).flatten()
+        d_h_e = (ad @ h.reshape(3,-1) + g_all @ control_forces).flatten()
+
+    h_e = h - h_d
+
+    # 权重迭代
+    if V_h_max > ksi:
+        W_h, V_h_new = critic_h.update_weights_h(h_e, d_h_e, control_h_0, control_h_1, control_h_2, control_h_3)
+
+        V_h_max = V_h_new
+
+        V_h = V_h_new
+
     control_h_0, control_h_1, control_h_2, control_h_3, = critic_h.NE_h(h_e , g_0, g_1, g_2, g_3)
 
     u = np.zeros(24)
-    u[0:3] = np.clip(control_0[:3] + 0.5*control_h_0, -u_max, u_max)
+    u[0:3] = np.clip(control_0[:3] + 0.25*control_h_0, -u_max, u_max)
     u[3:6] = np.clip(control_0[3:], -t_max, t_max)
-    u[6:9] = np.clip(control_1[:3] + 0.5*control_h_1, -u_max, u_max)
+    u[6:9] = np.clip(control_1[:3] + 0.25*control_h_1, -u_max, u_max)
     u[9:12] = np.clip(control_1[3:], -t_max, t_max)
-    u[12:15] = np.clip(control_2[:3] + 0.5*control_h_2, -u_max, u_max)
+    u[12:15] = np.clip(control_2[:3] + 0.25*control_h_2, -u_max, u_max)
     u[15:18] = np.clip(control_2[3:], -t_max, t_max)
-    u[18:21] = np.clip(control_3[:3] + 0.5*control_h_3, -u_max, u_max)
+    u[18:21] = np.clip(control_3[:3] + 0.25*control_h_3, -u_max, u_max)
     u[21:24] = np.clip(control_3[3:], -t_max, t_max)
 
     data.ctrl = u

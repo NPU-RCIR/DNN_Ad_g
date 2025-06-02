@@ -77,8 +77,8 @@ def generate_trajectory(v_c_0, a_c_d, n_steps, dt):
 
 def save_data(Error, Weights, Configuration, s, a, v, folder="data"):
     # 格式化a和v为两位小数字符串
-    a_formatted = "_".join([f"{x:.2f}" for x in a])
-    v_formatted = "_".join([f"{x:.2f}" for x in v])
+    a_formatted = f"{a:.2f}"
+    v_formatted = f"{v:.2f}"
 
     # 定义子文件夹路径
     subfolder = os.path.join(folder, f"s_{s} a_{a_formatted} v_{v_formatted}")
@@ -88,12 +88,12 @@ def save_data(Error, Weights, Configuration, s, a, v, folder="data"):
 
     # 保存数据到 .npy 文件
     np.save(os.path.join(subfolder, "E.npy"), Error)
-    np.save(os.path.join(subfolder, "C.npy"), Weights)
-    np.save(os.path.join(subfolder, "W.npy"), Configuration)
+    np.save(os.path.join(subfolder, "W.npy"), Weights)
+    np.save(os.path.join(subfolder, "C.npy"), Configuration)
 
 def run_simulation(v_c_0, a_c_d):
     # 加载模型
-    model = mujoco.MjModel.from_xml_path("E:/DNN_pva_copy/TSNR/net_11_11_h.mjcf")
+    model = mujoco.MjModel.from_xml_path("TSNR/net_11_11_h.mjcf")
     data = mujoco.MjData(model)
     mujoco.mj_resetData(model, data)
 
@@ -138,10 +138,15 @@ def run_simulation(v_c_0, a_c_d):
     traj = generate_trajectory(v_c_0, a_c_d, n_steps, dt)
 
     mujoco.mj_step(model, data)
-    data.qvel[0:3] = np.array([0.5, 0, 0])
-    data.qvel[6:9] = np.array([0.5, 0, 0])
-    data.qvel[12:15] = np.array([0.5, 0, 0])
-    data.qvel[18:21] = np.array([0.5, 0, 0])
+    data.qvel[0:3] = np.array([v_c_0[0], 0, 0])  # 使用v_c_0的x分量
+    data.qvel[6:9] = np.array([v_c_0[0], 0, 0])
+    data.qvel[12:15] = np.array([v_c_0[0], 0, 0])
+    data.qvel[18:21] = np.array([v_c_0[0], 0, 0])
+
+    data.qacc[0:3] = np.array([a_c_d[0], 0, 0])  # 使用a_c_d的x分量
+    data.qacc[6:9] = np.array([a_c_d[0], 0, 0])
+    data.qacc[12:15] = np.array([a_c_d[0], 0, 0])
+    data.qacc[18:21] = np.array([a_c_d[0], 0, 0])
     # data.qvel[-1] = 0.125
     # 期望速度 加速度
     # v_c_0 = np.array([0.5,0,0])
@@ -299,7 +304,7 @@ def run_simulation(v_c_0, a_c_d):
     # viewer.close()
 
     # 存储仿真结果
-    save_data(Error, Weights, Configuration, s=25, a=a_c_d, v=v_c_0, folder="data_EWC")
+    save_data(Error, Weights, Configuration, s=25, a=a_c_d[0], v=v_c_0[0], folder="data_EWC")
 
     return X_long, H_long
 
@@ -354,12 +359,12 @@ H_test = H_subs[num_train:]
 # X_test = np.array(X_test)    # 形状 (6, 4, 1000, 10)
 # H_test = np.array(H_test)    # 形状 (6, 1000, 3)
 
-np.save('X_long.npy', X_long)
-np.save('H_long.npy', H_long)
-np.save('X_train.npy', X_train)
-np.save('H_train.npy', H_train)
-np.save('X_test.npy', X_test)
-np.save('H_test.npy', H_test)
+# np.save('X_long.npy', X_long)
+# np.save('H_long.npy', H_long)
+# np.save('X_train.npy', X_train)
+# np.save('H_train.npy', H_train)
+# np.save('X_test.npy', X_test)
+# np.save('H_test.npy', H_test)
 
 # 绘制h的xyz变化
 plt.figure(figsize=(12, 8))
