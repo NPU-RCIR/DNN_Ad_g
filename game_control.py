@@ -137,22 +137,22 @@ def run_simulation(v_c_0, a_c_d):
     # 生成期望轨迹
     traj = generate_trajectory(v_c_0, a_c_d, n_steps, dt)
 
-    mujoco.mj_step(model, data)
+    # mujoco.mj_step(model, data)
     data.qvel[0:3] = np.array([v_c_0[0], 0, 0])  # 使用v_c_0的x分量
     data.qvel[6:9] = np.array([v_c_0[0], 0, 0])
     data.qvel[12:15] = np.array([v_c_0[0], 0, 0])
     data.qvel[18:21] = np.array([v_c_0[0], 0, 0])
 
-    data.qacc[0:3] = np.array([a_c_d[0], 0, 0])  # 使用a_c_d的x分量
-    data.qacc[6:9] = np.array([a_c_d[0], 0, 0])
-    data.qacc[12:15] = np.array([a_c_d[0], 0, 0])
-    data.qacc[18:21] = np.array([a_c_d[0], 0, 0])
+    # data.qacc[0:3] = np.array([a_c_d[0], 0, 0])  # 使用a_c_d的x分量
+    # data.qacc[6:9] = np.array([a_c_d[0], 0, 0])
+    # data.qacc[12:15] = np.array([a_c_d[0], 0, 0])
+    # data.qacc[18:21] = np.array([a_c_d[0], 0, 0])
     # data.qvel[-1] = 0.125
     # 期望速度 加速度
     # v_c_0 = np.array([0.5,0,0])
     # a_c_d = np.array([0.4,0,0])
 
-    # mujoco.mj_step(model, data)
+    mujoco.mj_step(model, data)
     for i in tqdm(range(n_steps), desc="仿真进度", ncols=100):  # 进度条
 
         # 期望轨迹 pd vd ud qd wd taud

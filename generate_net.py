@@ -84,11 +84,11 @@ def create_grid_model(rows, cols,file_name):
         for j in range(cols):
             if i == 0 and j == 0:
                 continue
-            elif i == 0 and j == cols:
+            elif i == 0 and j == cols-1:
                 continue
-            elif i == rows and j == 0:                   
+            elif i == rows-1 and j == 0:                   
                 continue
-            elif i == rows and j == cols:
+            elif i == rows-1 and j == cols-1:
                 break
             else:
                 node_name = f"node_{i}_{j}"
