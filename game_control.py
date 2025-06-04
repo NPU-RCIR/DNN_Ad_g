@@ -60,8 +60,20 @@ def generate_trajectory(v_c_0, a_c_d, n_steps, dt):
         np.array([0, 2.75, -2.75]),
         np.array([0, -2.75, -2.75])
     ]
+
+    ramp_time = 1.0 # 过渡时间
+    ramp_steps = int(ramp_time / dt)
+
     for i in range(n_steps):
         t = i * dt
+
+        if i < ramp_steps:
+            # 在前1秒内线性增加速度和加速度
+            a_c_d = a_c_d * (i / ramp_steps)
+        else:
+            # 在1秒后保持恒定速度和加速度
+            a_c_d = a_c_d
+
         p_c = np.array([-10, 0, 0]) + v_c_0 * t + 0.5 * a_c_d * t**2
         v_c = v_c_0 + a_c_d * t
         for sat_idx in range(4):
@@ -142,7 +154,7 @@ def run_simulation(v_c_0, a_c_d):
     data.qvel[6:9] = np.array([v_c_0[0], 0, 0])
     data.qvel[12:15] = np.array([v_c_0[0], 0, 0])
     data.qvel[18:21] = np.array([v_c_0[0], 0, 0])
-
+    mujoco.mj_step(model, data)
     # data.qacc[0:3] = np.array([a_c_d[0], 0, 0])  # 使用a_c_d的x分量
     # data.qacc[6:9] = np.array([a_c_d[0], 0, 0])
     # data.qacc[12:15] = np.array([a_c_d[0], 0, 0])
@@ -304,7 +316,7 @@ def run_simulation(v_c_0, a_c_d):
     # viewer.close()
 
     # 存储仿真结果
-    save_data(Error, Weights, Configuration, s=25, a=a_c_d[0], v=v_c_0[0], folder="data_EWC")
+    # save_data(Error, Weights, Configuration, s=25, a=a_c_d[0], v=v_c_0[0], folder="data_EWC")
 
     return X_long, H_long
 

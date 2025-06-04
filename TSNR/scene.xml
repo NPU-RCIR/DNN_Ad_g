@@ -1,0 +1,13 @@
+<mujoco>
+    <asset>
+        <!-- <texture name="desert" type="skybox" gridsize="3 4" gridlayout=".U..LFRB.D.." file="desert.png"/> -->
+        <texture name="earth" type="skybox"  fileright="figure/earth300002.png"  fileleft="figure/earth300004.png"  fileup="figure/earth300006.png"  filedown="figure/earth300005.png"  filefront="figure/earth300001.png" fileback="figure/earth300003.png"/>
+        <texture name="satellite" type="cube"  fileright="figure/satelliteright.png"  fileleft="figure/satelliteleft.png"  fileup="figure/satelliteup.png"  filedown="figure/satellitedown.png"  filefront="figure/satellitefront.png" fileback="figure/satelliteback.png"/>
+        <material name="satellite" texture="satellite"/>
+
+
+    </asset>
+
+
+
+</mujoco>
