@@ -248,3 +248,113 @@ class ADP():
         # u_1[3:] = np.clip(u_star[3:], -0.5, 0.5)
 
         return u_1, u_2, u_3, u_4
+    
+
+class ADP_aug():
+    # 自适应动态规划
+    def __init__(self, dt):
+        # 初始化
+        self.dt = dt
+        self.nn_dim = 24
+        self.weights = 500 * np.ones((self.nn_dim))
+        self.state_dim = 15
+        self.u_dim = 6
+        self.Q = 100 * np.eye(self.state_dim)
+        self.R = 0.1 * np.eye(self.u_dim)
+        self.yeta = 0.01  # learning rate
+        self.g = np.array(
+            [[0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0], [0.1, 0, 0, 0, 0, 0], [0, 0.1, 0, 0, 0, 0],
+             [0, 0, 0.1, 0, 0, 0], [0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0], [0, 0, 0, 2.3998, 0, 0],
+             [0, 0, 0, 0, 2.3998, 0], [0, 0, 0, 0, 0, 2.3998]])
+
+    def cost_function(self, x, u_0, u_1, u_2, u_3):
+        # 代价函数
+        r = x.T @ self.Q @ x + u_0 @ self.R @ u_0 + u_1 @ self.R @ u_1 + u_2 @ self.R @ u_2 + u_3 @ self.R @ u_3
+
+        return r
+
+    # phi对向量x的梯度
+    def dot_Phi(self, x):
+        # 基函数导数
+        jacobian = np.zeros((self.nn_dim, self.state_dim))
+
+        # 对每个 phi 项逐项求偏导
+        jacobian[0, 0] = x[0]  # ∂(x[0]^2)/∂x[0]
+        jacobian[1, 1] = x[1]  # ∂(x[1]^2)/∂x[1]
+        jacobian[2, 2] = x[2]  # ∂(x[2]^2)/∂x[2]
+        jacobian[3, 3] = x[3]  # ∂(x[3]^2)/∂x[3]
+        jacobian[4, 4] = x[4]  # ∂(x[4]^2)/∂x[4]
+        jacobian[5, 5] = x[5]  # ∂(x[5]^2)/∂x[5]
+
+        jacobian[6, 0] = x[3]  # ∂(x[3]*x[0])/∂x[0]
+        jacobian[6, 3] = x[0]  # ∂(x[3]*x[0])/∂x[3]
+        jacobian[7, 1] = x[4]  # ∂(x[4]*x[1])/∂x[1]
+        jacobian[7, 4] = x[1]  # ∂(x[4]*x[1])/∂x[4]
+        jacobian[8, 2] = x[5]  # ∂(x[5]*x[2])/∂x[2]
+        jacobian[8, 5] = x[2]  # ∂(x[5]*x[2])/∂x[5]
+
+        jacobian[9, 6] = x[6]  # ∂(x[6]^2)/∂x[6]
+        jacobian[10, 7] = x[7]  # ∂(x[7]^2)/∂x[7]
+        jacobian[11, 8] = x[8]  # ∂(x[8]^2)/∂x[8]
+        jacobian[12, 9] = x[9]  # ∂(x[9]^2)/∂x[9]
+        jacobian[13, 10] = x[10]  # ∂(x[10]^2)/∂x[10]
+        jacobian[14, 11] = x[11]  # ∂(x[11]^2)/∂x[11]
+
+        jacobian[15, 6] = x[9]  # ∂(x[9]*x[6])/∂x[6]
+        jacobian[15, 9] = x[6]  # ∂(x[9]*x[6])/∂x[9]
+        jacobian[16, 7] = x[10]  # ∂(x[10]*x[7])/∂x[7]
+        jacobian[16, 10] = x[7]  # ∂(x[10]*x[7])/∂x[10]
+        jacobian[17, 8] = x[11]  # ∂(x[11]*x[8])/∂x[8]
+        jacobian[17, 11] = x[8]  # ∂(x[11]*x[8])/∂x[11]
+
+        jacobian[18, 12] = x[12]  # ∂(x[12]^2)/∂x[12]
+        jacobian[19, 13] = x[13]
+        jacobian[20, 14] = x[14]
+        jacobian[21, 12] = x[13]
+        jacobian[21, 13] = x[12]
+        jacobian[22, 12] = x[14]
+        jacobian[22, 14] = x[12]
+        jacobian[23, 13] = x[14]
+        jacobian[23, 14] = x[13]
+
+        return jacobian
+
+    def Phi(self, x):
+        # 基函数
+        phi = np.array(
+            [0.5 * x[0] ** 2, 0.5 * x[1] ** 2, 0.5 * x[2] ** 2, 0.5 * x[3] ** 2, 0.5 * x[4] ** 2, 0.5 * x[5] ** 2,
+             x[3] * x[0], x[4] * x[1], x[5] * x[2],
+             0.5 * x[6] ** 2, 0.5 * x[7] ** 2, 0.5 * x[8] ** 2, 0.5 * x[9] ** 2, 0.5 * x[10] ** 2, 0.5 * x[11] ** 2,
+             x[9] * x[6], x[10] * x[7], x[11] * x[8],
+             0.5 * x[12] ** 2, 0.5 * x[13] ** 2, 0.5 * x[14] ** 2, 
+             x[12] * x[13], x[12] * x[14], x[13] * x[14]])
+
+        return phi
+
+    def update_weights(self, x, d_x, u_0, u_1, u_2, u_3):
+        # 更新权重
+        r = self.cost_function(x, u_0, u_1, u_2, u_3)
+        d_phi = self.dot_Phi(x)
+        e = r + self.weights.T @ d_phi @ d_x  
+        theta = d_phi @ d_x 
+        d_weights = - self.yeta * theta * e  # 梯度下降
+        self.weights = self.weights + d_weights * self.dt
+        phi = self.Phi(x)
+        v = self.weights.T @ phi  # 值函数，拟合的这个
+
+        return self.weights, v
+
+    def NE(self, x, g):
+        # Nash均衡策略
+        g_aug = np.zeros((15, 6))
+        g_aug[:12, :] = self.g
+        g_aug[12:15, :3] = g  # 这里的g参数是传进来的，左上角3x3
+        # g[12:15, 3:] 已经是0，无需赋值
+        d_phi = self.dot_Phi(x)
+        u_star = - 0.5 * np.linalg.inv(self.R) @ g_aug.T @ d_phi.T @ self.weights
+
+        # 如果不限幅值会崩溃 这是个很严重的问题，可以加饱和函数
+        u_star[:3] = np.clip(u_star[:3], -5, 5)
+        u_star[3:] = np.clip(u_star[3:], -0.5, 0.5)
+
+        return u_star
