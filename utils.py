@@ -104,7 +104,7 @@ class ADP():
         self.u_dim = 6
         self.Q = 100 * np.eye(self.state_dim)
         self.R = 0.1 * np.eye(self.u_dim)
-        self.yeta = 0.01  # learning rate
+        self.yeta = 0.001  # learning rate
         self.g = np.array(
             [[0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0], [0.1, 0, 0, 0, 0, 0], [0, 0.1, 0, 0, 0, 0],
              [0, 0, 0.1, 0, 0, 0], [0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0], [0, 0, 0, 2.3998, 0, 0],
@@ -255,7 +255,7 @@ class ADP_aug():
     def __init__(self, dt):
         # 初始化
         self.dt = dt
-        self.nn_dim = 24
+        self.nn_dim = 21
         self.weights = 500 * np.ones((self.nn_dim))
         self.state_dim = 15
         self.u_dim = 6
@@ -310,12 +310,12 @@ class ADP_aug():
         jacobian[18, 12] = x[12]  # ∂(x[12]^2)/∂x[12]
         jacobian[19, 13] = x[13]
         jacobian[20, 14] = x[14]
-        jacobian[21, 12] = x[13]
-        jacobian[21, 13] = x[12]
-        jacobian[22, 12] = x[14]
-        jacobian[22, 14] = x[12]
-        jacobian[23, 13] = x[14]
-        jacobian[23, 14] = x[13]
+        # jacobian[21, 12] = x[13]
+        # jacobian[21, 13] = x[12]
+        # jacobian[22, 12] = x[14]
+        # jacobian[22, 14] = x[12]
+        # jacobian[23, 13] = x[14]
+        # jacobian[23, 14] = x[13]
 
         return jacobian
 
@@ -327,7 +327,8 @@ class ADP_aug():
              0.5 * x[6] ** 2, 0.5 * x[7] ** 2, 0.5 * x[8] ** 2, 0.5 * x[9] ** 2, 0.5 * x[10] ** 2, 0.5 * x[11] ** 2,
              x[9] * x[6], x[10] * x[7], x[11] * x[8],
              0.5 * x[12] ** 2, 0.5 * x[13] ** 2, 0.5 * x[14] ** 2, 
-             x[12] * x[13], x[12] * x[14], x[13] * x[14]])
+            # x[12] * x[13], x[12] * x[14], x[13] * x[14]
+             ])
 
         return phi
 

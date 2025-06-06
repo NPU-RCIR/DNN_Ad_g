@@ -37,6 +37,22 @@ a_3 = A_c[3, 1] + A_c[3, 2] + B_c[3, 3]
 a_31 = A_c[3, 1]
 a_32 = A_c[3, 2]
 
+def save_data(Error, Weights, Configuration, s, a, v, folder="data"):
+    # 格式化a和v为两位小数字符串
+    a_formatted = f"{a:.2f}"
+    v_formatted = f"{v:.2f}"
+
+    # 定义子文件夹路径
+    subfolder = os.path.join(folder, f"s_{s} a_{a_formatted} v_{v_formatted}")
+
+    # 如果子文件夹不存在，则创建
+    os.makedirs(subfolder, exist_ok=True)
+
+    # 保存数据到 .npy 文件
+    np.save(os.path.join(subfolder, "E.npy"), Error)
+    np.save(os.path.join(subfolder, "W.npy"), Weights)
+    np.save(os.path.join(subfolder, "C.npy"), Configuration)
+
 def generate_trajectory(v_c_0, a_c_d, n_steps, dt):
     """生成包含姿态的期望轨迹"""
     trajectory = np.zeros((4, n_steps, 19))
@@ -63,8 +79,8 @@ def generate_trajectory(v_c_0, a_c_d, n_steps, dt):
 
 def save_data(Error, Weights, Configuration, s, a, v, folder="data"):
     # 格式化a和v为两位小数字符串
-    a_formatted = "_".join([f"{x:.2f}" for x in a])
-    v_formatted = "_".join([f"{x:.2f}" for x in v])
+    a_formatted = f"{a:.2f}"
+    v_formatted = f"{v:.2f}"
 
     # 定义子文件夹路径
     subfolder = os.path.join(folder, f"s_{s} a_{a_formatted} v_{v_formatted}")
@@ -74,8 +90,8 @@ def save_data(Error, Weights, Configuration, s, a, v, folder="data"):
 
     # 保存数据到 .npy 文件
     np.save(os.path.join(subfolder, "E.npy"), Error)
-    np.save(os.path.join(subfolder, "C.npy"), Weights)
-    np.save(os.path.join(subfolder, "W.npy"), Configuration)
+    np.save(os.path.join(subfolder, "W.npy"), Weights)
+    np.save(os.path.join(subfolder, "C.npy"), Configuration)
 
 
 # 加载模型
@@ -84,7 +100,7 @@ data = mujoco.MjData(model)
 mujoco.mj_resetData(model, data)
 
 # 渲染
-viewer = mujoco_viewer.MujocoViewer(model, data)
+# viewer = mujoco_viewer.MujocoViewer(model, data)
 
 # 初始化
 Error = np.zeros((4, n_steps, 16))
@@ -355,11 +371,11 @@ for i in tqdm(range(n_steps), desc="仿真进度", ncols=100):  # 进度条
     Configuration[i, 5:9] = q_0
 
     # 渲染
-    viewer.render()
-    if not viewer.is_alive:
-        break
+    # viewer.render()
+    # if not viewer.is_alive:
+    #     break
 
 # viewer.close()
 
 # 存储仿真结果
-# save_data(Error, Weights, Configuration, s=25, a=a_c_d[0], v=v_c_0[0], folder="data_EWC")
+save_data(Error, Weights, Configuration, s=25, a=a_c_d[0], v=v_c_0[0], folder="data_aug_EWC")
