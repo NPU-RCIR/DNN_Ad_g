@@ -93,6 +93,13 @@ def save_data(Error, Weights, Configuration, s, a, v, folder="data"):
     np.save(os.path.join(subfolder, "W.npy"), Weights)
     np.save(os.path.join(subfolder, "C.npy"), Configuration)
 
+# current_dir = os.path.dirname(os.path.abspath(__file__)) # 获取当前文件所在的文件夹路径
+
+# path_planning_dir = os.path.join(current_dir, "Path Planning") # 构造 path_planning 文件夹路径
+
+# npy_file_path = os.path.join(path_planning_dir, "traj1.npy") # 构造 .npy 文件的完整路径
+
+# traj = np.load(npy_file_path) # 读取 .npy 文件
 
 # 加载模型
 model = mujoco.MjModel.from_xml_path("TSNR/net_11_11_h.mjcf")
@@ -100,7 +107,7 @@ data = mujoco.MjData(model)
 mujoco.mj_resetData(model, data)
 
 # 渲染
-# viewer = mujoco_viewer.MujocoViewer(model, data)
+viewer = mujoco_viewer.MujocoViewer(model, data)
 
 # 初始化
 Error = np.zeros((4, n_steps, 16))
@@ -153,15 +160,15 @@ control_inputs = np.zeros((n_steps, 12))
 prev_v_c = np.zeros(3)
 
 # 生成期望轨迹
-v_c_0 = np.array([0.5, 0, 0])
-a_c_d = np.array([0.5, 0, 0])
+v_c_0 = np.array([0.4, 0, 0])
+a_c_d = np.array([0.4, 0, 0])
 traj = generate_trajectory(v_c_0, a_c_d, n_steps, dt)
 
 # mujoco.mj_step(model, data)
-data.qvel[0:3] = np.array([0.5, 0, 0])
-data.qvel[6:9] = np.array([0.5, 0, 0])
-data.qvel[12:15] = np.array([0.5, 0, 0])
-data.qvel[18:21] = np.array([0.5, 0, 0])
+data.qvel[0:3] = np.array([0.4, 0, 0])
+data.qvel[6:9] = np.array([0.4, 0, 0])
+data.qvel[12:15] = np.array([0.4, 0, 0])
+data.qvel[18:21] = np.array([0.4, 0, 0])
 
 mujoco.mj_step(model, data)
 # data.qvel[-1] = 0.125
@@ -244,21 +251,7 @@ for i in tqdm(range(n_steps), desc="仿真进度", ncols=100):  # 进度条
     g_x_1, d_g_x_1 = game_dynamic(x_1_e, x_0_e, x_3_e, d_x_1_e, d_x_0_e, d_x_3_e, a_1, a_10, a_13)
     g_x_2, d_g_x_2 = game_dynamic(x_2_e, x_0_e, x_3_e, d_x_1_e, d_x_0_e, d_x_3_e, a_2, a_20, a_23)
     g_x_3, d_g_x_3 = game_dynamic(x_3_e, x_1_e, x_2_e, d_x_0_e, d_x_1_e, d_x_2_e, a_3, a_31, a_32)
-
-
-    h_d = np.array([1.1, 0.01, 0.01])
-    # 用h真值实验
-    # h_e = h - h_d
-    #
-    # # 计算深度导数 (使用前一帧的深度)
-    # if i == 0:
-    #     d_h_e = np.zeros(3)
-    # else:
-    #     d_h_e = (h - prev_h) / dt
-    #
-    #     # 保存当前深度用于下一帧计算
-    #     prev_h = h.copy()
-
+    
     # 自适应动态规划
     if V_max > ksi:
         # 更新权重
@@ -299,19 +292,33 @@ for i in tqdm(range(n_steps), desc="仿真进度", ncols=100):  # 进度条
     g_2 = g_all[:, 6:9]
     g_3 = g_all[:, 9:12]
 
-    # 用传递h实验
-    h_next = np.zeros(3)
-
+    h_d = np.array([0.4, 0.01, 0.01])
+    
+    # 用h真值实验
+    h_e = h - h_d
+    
+    # 计算深度导数 (使用前一帧的深度)
     if i == 0:
-        h = p_c - p_n
-        h_next = (ad @ h.reshape(3,-1) + g_all @ control_forces).flatten()
         d_h_e = np.zeros(3)
     else:
-        h = h_next
-        h_next =  (ad @ h.reshape(3,-1) + g_all @ control_forces).flatten()
-        d_h_e = (ad @ h.reshape(3,-1) + g_all @ control_forces).flatten()
+        d_h_e = (h - prev_h) / dt
+    
+        # 保存当前深度用于下一帧计算
+        prev_h = h.copy()
 
-    h_e = h - h_d
+    # 用传递h实验
+    # h_next = np.zeros(3)
+
+    # if i == 0:
+    #     h = p_c - p_n
+    #     h_next = (ad @ h.reshape(3,-1) + g_all @ control_forces).flatten()
+    #     d_h_e = np.zeros(3)
+    # else:
+    #     h = h_next
+    #     h_next =  (ad @ h.reshape(3,-1) + g_all @ control_forces).flatten()
+    #     d_h_e = (ad @ h.reshape(3,-1) + g_all @ control_forces).flatten()
+
+    # h_e = h - h_d
 
     # 设计耦合误差项e，d_e
     x_e = np.delete(x_0_e, 6) + np.delete(x_1_e, 6) + np.delete(x_2_e, 6) + np.delete(x_3_e, 6)
@@ -339,6 +346,7 @@ for i in tqdm(range(n_steps), desc="仿真进度", ncols=100):  # 进度条
     control_aug_3 = critic_aug_3.NE(e , g_3)
 
     u = np.zeros(24)
+    # u = np.zeros(27)
     u[0:3] = np.clip(control_aug_0[:3], -u_max, u_max)
     u[3:6] = np.clip(control_aug_0[3:], -t_max, t_max)
     u[6:9] = np.clip(control_aug_1[:3], -u_max, u_max)
@@ -371,9 +379,9 @@ for i in tqdm(range(n_steps), desc="仿真进度", ncols=100):  # 进度条
     Configuration[i, 5:9] = q_0
 
     # 渲染
-    # viewer.render()
-    # if not viewer.is_alive:
-    #     break
+    viewer.render()
+    if not viewer.is_alive:
+        break
 
 # viewer.close()
 
