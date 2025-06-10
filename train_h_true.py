@@ -16,6 +16,7 @@ def main():
     SAVE_DIR = "models"
 
     predict_time = 20
+    delta_p_dim = 12
 
     # 初始化组件
     processor = SpaceNetDataProcessor()
@@ -82,6 +83,17 @@ def main():
 
             y = y_batch[:, predict_time:, :]
 
+            # 分割输入
+            delta_p = features[:, :, -delta_p_dim:]  # [batch, 12]
+            other_features = features[:, :, :-delta_p_dim]  # [batch, 9]
+
+            # 计算整个序列的聚合特征
+            aggregated_pva = other_features.mean(dim=(0, 1), keepdim=True)  # [1, 1, 9]
+            aggregated_delta_p = delta_p.mean(dim=(0, 1), keepdim=True)  # [1, 1, 12]
+
+            # 计算并缓存共享矩阵（每个batch计算一次）
+            model.compute_shared_matrices(aggregated_pva.squeeze(0), aggregated_delta_p.squeeze(0))
+
             for step in range(predict_time - 1):
                 end = features.shape[1] - (predict_time - step)
 
@@ -89,7 +101,7 @@ def main():
                 x = features[:, step:end, :]
                 
                 batch_size, seq_len, _ = x.shape
-                
+
                 # h_prev = y_batch[:, t, :].detach()  # 使用真值作为下一步输入
                 # 前向传播
                 if step == 0:
@@ -128,20 +140,32 @@ def main():
         test_loss = 0.0
         with torch.no_grad():  # 上下文管理器，用于关闭梯度计算。在验证阶段，不需要计算梯度，关闭梯度计算可以节省内存并提高计算速度。
             for X_batch, y_batch in test_loader:
-                a = X_batch.shape
-                b = y_batch.shape
+                # a = X_batch.shape
+                # b = y_batch.shape
                 u_batch = X_batch[:, :, -12:]  # 控制输入 [batch, 12]
                 features = X_batch[:, :, :-12]  # [other_features (9) | delta_p (12)]
                 # h_init = y_batch[:, 0, :]
                 y = y_batch[:, predict_time:, :]
 
                 # for step in range(predict_time - 1):
-                step = 0
-                end = features.shape[1] - (predict_time - step)
-                u = u_batch[:, step:end, :]
-                x = features[:, step:end, :]
+                # step = 0
+                # end = features.shape[1] - (predict_time - step)
+                # u = u_batch[:, step:end, :]
+                # x = features[:, step:end, :]
 
                 batch_size, seq_len, _ = x.shape
+
+                # 分割输入
+                delta_p = features[:, :, -delta_p_dim:]  # [batch, 12]
+                other_features = features[:, :, :-delta_p_dim]  # [batch, 9]
+
+                # 计算整个序列的聚合特征
+                aggregated_pva = other_features.mean(dim=(0, 1), keepdim=True)  # [1, 1, 9]
+                aggregated_delta_p = delta_p.mean(dim=(0, 1), keepdim=True)  # [1, 1, 12]
+
+                # 计算并缓存共享矩阵（每个batch计算一次）
+                model.compute_shared_matrices(aggregated_pva.squeeze(0), aggregated_delta_p.squeeze(0))
+
                 for step in range(predict_time - 1):
                     end = features.shape[1] - (predict_time - step)
                     u = u_batch[:, step:end, :]
@@ -179,7 +203,8 @@ def main():
             best_test_loss = test_loss
 
             # 获取模型生成的g矩阵
-            g_matrix = model.last_g_matrix.numpy() if model.last_g_matrix is not None else None
+            g_matrix = model.shared_g_matrix.detach().cpu().numpy() if model.shared_g_matrix is not None else None
+            ad_matrix = model.shared_ad_matrix.detach().cpu().numpy() if model.shared_ad_matrix is not None else None
 
         # train.py (片段)
         torch.save({
@@ -191,6 +216,7 @@ def main():
             # 'mean_long': validation_mean,
             # 'std_long': validation_std,
             'hidden_dim': HIDDEN_DIM,  # 新增此行
+            'ad_matrix': ad_matrix,
             'g_matrix': g_matrix  # 新增：保存g矩阵
         }, f"{SAVE_DIR}/best_model.pth")
 
